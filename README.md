@@ -6,148 +6,147 @@ Este projeto foi preparado para funcionar como uma lista de casamento simples, h
 
 - `index.html` — site da lista de casamento.
 - `Code.gs` — backend para Google Apps Script.
+- `images/` — fotos dos presentes e QR Code do Pix.
 - `README.md` — este guia.
+
+## Como funciona
+
+`Convidado → GitHub Pages (index.html) → Google Apps Script → Google Sheets`
+
+O site **reserva** presentes; ele não processa pagamentos. O convidado escolhe um item, informa nome e e-mail e confirma. Em seguida, o site mostra o próximo passo: comprar o presente e entregar ao casal, ou enviar o valor sugerido via Pix.
+
+A planilha tem duas abas:
+
+- **`Catalogo`** — os presentes (`id`, `nome`, `categoria`, `preco`, `quantidade`, `emoji`, `ativo`). É a única fonte de verdade da lista publicada.
+- **`Presentes`** — uma linha por reserva, com os dados do convidado.
 
 ## 1. Testar localmente
 
 Abra `index.html` no navegador.
 
-Enquanto nenhuma URL do Apps Script estiver configurada, o site funciona em **modo demonstração** e salva as reservas apenas no navegador (`localStorage`).
+Enquanto nenhuma URL do Apps Script estiver configurada, o site funciona em **modo demonstração**: usa a lista `DEMO_ITEMS` do próprio `index.html` e salva as reservas apenas no navegador (`localStorage`).
 
-Isso permite validar o visual, os presentes e o fluxo antes de configurar o backend.
+Isso permite validar o visual e o fluxo antes de configurar o backend.
 
 ## 2. Criar a planilha no Google Sheets
 
-1. Crie uma nova planilha no Google Sheets.
-2. Dê um nome fácil de identificar, por exemplo: `Lista de Casamento`.
-3. Na planilha, abra **Extensões → Apps Script**.
-4. Apague o conteúdo inicial do editor.
-5. Copie todo o conteúdo do arquivo `Code.gs` deste pacote e cole no editor.
-6. Salve o projeto.
+1. Crie uma nova planilha no Google Sheets, por exemplo `Lista de Casamento`.
+2. Na planilha, abra **Extensões → Apps Script**. O script precisa ser criado por esse caminho, pois ele usa a planilha à qual está vinculado.
+3. Apague o conteúdo inicial do editor, cole todo o conteúdo de `Code.gs` e salve.
+4. Recarregue a planilha. Aparecerá o menu **Lista de Casamento**.
+5. Clique em **Lista de Casamento → Configurar planilha** e autorize o script quando o Google solicitar. As abas `Catalogo` e `Presentes` serão criadas.
 
-O script criará/organizará a estrutura necessária para registrar as reservas.
+Mantenha a planilha **privada** (não compartilhe por link): ela contém nome, e-mail e mensagem dos convidados.
 
-## 3. Publicar o Apps Script
+## 3. Definir o código do convite (recomendado)
+
+Sem um código, qualquer pessoa que descubra o endereço do site consegue reservar presentes.
+
+1. Na planilha, clique em **Lista de Casamento → Gerar código do convite**.
+2. Anote o código exibido.
+3. Envie aos convidados o link do site terminado em `#c=CODIGO`, por exemplo:
+   `https://seu-usuario.github.io/lista-casamento/#c=1a2b3c4d5e6f`
+
+O código fica guardado nas Propriedades do Script, não no código-fonte, então o repositório pode ser público. Quem abrir o site sem o código no link verá um campo para digitá-lo ao reservar.
+
+Para consultar, trocar ou remover o código, use o mesmo menu. Gerar um novo código invalida os links já enviados.
+
+## 4. Publicar o Apps Script
 
 No editor do Apps Script:
 
 1. Clique em **Implantar → Nova implantação**.
 2. Escolha o tipo **Aplicativo da Web**.
-3. Configure para executar como o proprietário da planilha.
-4. Defina o acesso de forma que os convidados que usarão o site possam chamar o aplicativo.
-5. Conclua a implantação.
-6. Autorize o script quando o Google solicitar.
-7. Copie a URL do aplicativo da Web gerada pela implantação.
+3. Em **Executar como**, selecione **Eu**.
+4. Em **Quem pode acessar**, selecione **Qualquer pessoa**.
+5. Conclua a implantação e copie a URL terminada em `/exec`.
 
-> Guarde essa URL. Ela será colocada no `index.html`.
+## 5. Conectar o site ao Google Sheets
 
-## 4. Conectar o site ao Google Sheets
+No bloco `CONFIG` do `index.html`, cole a URL em `appsScriptUrl`:
 
-Abra `index.html` em um editor de código e procure a configuração:
+`appsScriptUrl: "https://script.google.com/macros/s/.../exec"`
 
-`appsScriptUrl`
+O site só aceita URLs nesse formato. Com ela configurada, o indicador no topo passa a mostrar **Lista sincronizada**.
 
-Cole nela a URL da implantação do Apps Script.
+## 6. Personalizar
 
-Exemplo conceitual:
+### Textos, Pix e aparência — `index.html`
 
-`appsScriptUrl: "URL_DO_APPS_SCRIPT_AQUI"`
+No bloco `CONFIG`: `coupleNames`, `weddingDate`, `babyName`, `babyMonth`, `introMessage`, `pixTitle`, `pixMessage`, `pixKey`, `pixQrImage`, `nextStepMessage` e `appsScriptUrl`.
 
-Salve o arquivo.
+`nextStepMessage` é o texto exibido depois da reserva; `{valor}` é substituído pelo valor sugerido do presente.
 
-A partir desse momento, o site deixa de depender somente do armazenamento local e pode usar o backend compartilhado para as reservas.
+### Presentes — aba `Catalogo` da planilha
 
-## 5. Personalizar o casamento
+Edite direto na planilha; o site reflete a mudança ao recarregar, sem novo deploy.
 
-No bloco de configuração do `index.html`, revise principalmente:
+- **`id`** — número inteiro único. **Nunca reutilize nem altere o id de um item que já tem reservas**: as reservas são ligadas a ele. Para novos itens, use o próximo número livre.
+- **`quantidade`** — total de cotas do item.
+- **`preco`** — valor sugerido (deixe `0` para não exibir).
+- **`ativo`** — escreva `não` para ocultar um item sem apagá-lo.
 
-- nome dos noivos;
-- texto de apresentação;
-- chave Pix;
-- QR Code do Pix;
-- presentes;
-- categorias;
-- quantidades;
-- valores sugeridos.
+### Fotos dos presentes
 
-Antes da publicação, substitua todos os dados de demonstração pelos dados reais.
-
-## 6. Publicar no GitHub Pages
-
-1. Crie um repositório no GitHub, por exemplo `lista-casamento`.
-2. Adicione pelo menos o arquivo `index.html`.
-3. Faça commit e push.
-4. No GitHub, abra **Settings → Pages**.
-5. Em **Build and deployment**, selecione a publicação a partir de uma branch.
-6. Escolha a branch usada pelo projeto (normalmente `main`) e a pasta raiz `/`.
-7. Salve.
-8. Aguarde o GitHub disponibilizar a URL pública do site.
-
-O `index.html` precisa permanecer na raiz publicada.
-
-## 7. Teste antes de enviar aos convidados
-
-Faça um teste em dois navegadores ou dispositivos diferentes:
-
-1. Abra a URL do GitHub Pages.
-2. Reserve um presente informando os dados de teste.
-3. Abra a página no segundo dispositivo.
-4. Atualize a lista.
-5. Confirme que a disponibilidade foi reduzida.
-6. Confira se a reserva apareceu na planilha.
-7. Teste um item com apenas uma unidade disponível.
-8. Confira a chave Pix e o QR Code.
-9. Depois, exclua da planilha os registros usados apenas para teste.
-
-## 8. Checklist de publicação
-
-- [ ] Nome dos noivos correto
-- [ ] Texto inicial revisado
-- [ ] Lista de presentes revisada
-- [ ] Quantidades revisadas
-- [ ] Valores revisados
-- [ ] Chave Pix correta
-- [ ] QR Code Pix correto
-- [ ] Apps Script implantado
-- [ ] `appsScriptUrl` configurada
-- [ ] Reserva testada em dois dispositivos
-- [ ] Registros chegando ao Google Sheets
-- [ ] GitHub Pages publicado
-- [ ] Teste no celular concluído
-
-## Arquitetura
-
-`Convidado → GitHub Pages (index.html) → Google Apps Script → Google Sheets`
-
-O GitHub Pages hospeda a interface. O Apps Script funciona como uma pequena API. O Google Sheets mantém os registros compartilhados.
-
-## Observação importante
-
-O modo `localStorage` é adequado para demonstração, mas **não sincroniza convidados diferentes**. Para a lista real, publique e configure o Apps Script antes de divulgar o link.
-
-## Manutenção
-
-Para alterar textos, produtos, valores ou configurações visuais, edite `index.html`, faça commit/push no GitHub e aguarde a atualização do GitHub Pages.
-
-Se o código do `Code.gs` for alterado, verifique no Apps Script se é necessário atualizar/criar uma nova implantação e, caso a URL mude, atualize também `appsScriptUrl` no site.
-
-
-## Personalização rápida — versão 3
-
-No início do JavaScript de `index.html` existe o bloco `CONFIG`. Altere ali:
-`coupleNames`, `weddingDate`, `babyName`, `babyMonth`, `introMessage`, `pixTitle`, `pixMessage`, `pixKey`, `pixQrImage` e `appsScriptUrl`.
-
-### Fotos automáticas dos presentes
-
-Crie a pasta `images` ao lado do `index.html`. O site procura automaticamente a foto e, se não encontrar, mantém o ícone original.
+Coloque as fotos na pasta `images`. O site procura a foto pelo nome do presente e, se não encontrar, mostra o emoji.
 
 Formatos tentados, nesta ordem: `.webp`, `.jpg`, `.jpeg`, `.png`.
 
-O nome é gerado automaticamente a partir do presente:
 - `Air fryer` → `images/air-fryer.webp`
-- `Jogo de panelas` → `images/jogo-de-panelas.webp`
 - `Carrinho de bebê` → `images/carrinho-de-bebe.webp`
 - `Babá eletrônica` → `images/baba-eletronica.webp`
-- `Cota lua de mel` → `images/cota-lua-de-mel.webp`
 
 Recomendação: WebP quadrado, entre 600×600 e 1000×1000 px.
+
+## 7. Publicar no GitHub Pages
+
+1. Crie um repositório no GitHub, por exemplo `lista-casamento`.
+2. Adicione `index.html` e a pasta `images`.
+3. Faça commit e push.
+4. No GitHub, abra **Settings → Pages**, selecione a publicação a partir de uma branch (normalmente `main`, pasta `/`) e salve.
+5. Aguarde o GitHub disponibilizar a URL pública do site.
+
+## 8. Teste antes de enviar aos convidados
+
+1. Abra o link com `#c=CODIGO` e reserve um presente com dados de teste.
+2. Abra o site em um segundo dispositivo e confirme que a disponibilidade diminuiu.
+3. Confira se a reserva apareceu na aba `Presentes`.
+4. Abra o site **sem** o código no link e confirme que a reserva pede o código.
+5. Teste um item com apenas uma unidade disponível.
+6. Confira a chave Pix e o QR Code.
+7. Apague da aba `Presentes` as linhas de teste.
+
+## Dia a dia
+
+- **Cancelar uma reserva**: apague a linha correspondente na aba `Presentes`. O item volta a ficar disponível.
+- **Alterar presentes**: edite a aba `Catalogo`.
+- **Alterar textos ou visual**: edite `index.html`, faça commit e push.
+- **Alterar o `Code.gs`**: depois de salvar, abra **Implantar → Gerenciar implantações → Editar → Versão: Nova versão**. Sem isso, a URL `/exec` continua executando a versão antiga. A URL não muda.
+
+## Segurança
+
+O que o projeto já faz:
+
+- O site recebe apenas o catálogo e os totais reservados. Nome, e-mail e mensagem dos convidados nunca saem da planilha.
+- Toda validação é feita no servidor: item, quantidade, disponibilidade, e-mail e tamanho dos campos. O nome do item gravado vem sempre do catálogo.
+- Reservas simultâneas são serializadas com um lock, então a última unidade não é reservada duas vezes.
+- Textos dos convidados não são interpretados como fórmulas na planilha.
+- Limites contra abuso: código do convite, 6 reservas por e-mail, 40 reservas por hora no total e um campo-isca contra robôs. Os dois limites numéricos são constantes no início do `Code.gs`.
+- O site tem uma Content Security Policy que só permite conexões com o Google Apps Script.
+
+Limites que continuam existindo:
+
+- O código do convite é compartilhado por todos os convidados. Ele bloqueia desconhecidos e robôs, mas não impede um convidado de reservar em nome de outra pessoa. Se notar algo estranho, apague as linhas e gere um novo código.
+- Sem o código do convite, os limites por e-mail e por hora só reduzem a velocidade de um abuso; não o impedem.
+
+## Checklist de publicação
+
+- [ ] Nome dos noivos e textos revisados
+- [ ] Aba `Catalogo` revisada (itens, quantidades, valores)
+- [ ] Chave Pix e QR Code corretos
+- [ ] Planilha privada
+- [ ] Código do convite gerado
+- [ ] Apps Script implantado e `appsScriptUrl` configurada
+- [ ] Reserva testada em dois dispositivos
+- [ ] Linhas de teste apagadas da aba `Presentes`
+- [ ] GitHub Pages publicado e testado no celular

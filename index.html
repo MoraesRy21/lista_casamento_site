@@ -4,6 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#f7f2eb" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'"
+    />
     <title>Lista de Casamento</title>
     <style>
       :root {
@@ -284,6 +289,35 @@
         margin-top: 12px;
         line-height: 1.5;
       }
+      .note.error {
+        color: var(--danger);
+        font-size: 13px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .hp {
+        position: absolute;
+        left: -9999px;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+      }
+      .modal p {
+        line-height: 1.6;
+      }
+      .modal .pixkey {
+        background: #f3ece5;
+      }
+      .empty {
+        grid-column: 1 / -1;
+        text-align: center;
+        color: var(--muted);
+        padding: 40px 10px;
+      }
+      .empty button {
+        margin-top: 14px;
+      }
       @media (max-width: 620px) {
         header {
           padding-top: 44px;
@@ -327,7 +361,7 @@
           <h2>Prefere presentear via Pix?</h2>
           <p>Você pode contribuir com qualquer valor para essa nova fase.</p>
           <div class="pixkey" id="pixKey">SUA-CHAVE-PIX-AQUI</div>
-          <button class="primary" onclick="copyPix()">Copiar chave Pix</button>
+          <button class="primary" id="copyPixBtn">Copiar chave Pix</button>
           <div class="note">
             O Pix é feito diretamente no aplicativo do banco. A página não
             processa pagamentos.
@@ -339,96 +373,181 @@
     <dialog id="giftDialog">
       <form class="modal" id="giftForm">
         <h2 id="modalTitle">Presentear</h2>
-        <input type="hidden" id="itemId" /><label>Seu nome *</label
-        ><input id="giverName" autocomplete="name" required /><label
-          >Seu e-mail *</label
+        <input type="hidden" id="itemId" /><label for="giverName"
+          >Seu nome *</label
+        ><input
+          id="giverName"
+          autocomplete="name"
+          minlength="2"
+          maxlength="120"
+          required
+        /><label for="giverEmail">Seu e-mail *</label
         ><input
           id="giverEmail"
           type="email"
           autocomplete="email"
+          maxlength="160"
           required
-        /><label>Quantidade</label
+        /><label for="inviteCode" id="inviteLabel" hidden
+          >Código do convite *</label
+        ><input
+          id="inviteCode"
+          autocomplete="off"
+          maxlength="100"
+          hidden
+        /><label for="giftQty">Quantidade</label
         ><select id="giftQty"></select
-        ><label>Mensagem para o casal</label
-        ><textarea id="message" rows="3"></textarea>
+        ><label for="message">Mensagem para o casal</label
+        ><textarea id="message" rows="3" maxlength="500"></textarea>
+        <input
+          class="hp"
+          id="website"
+          tabindex="-1"
+          autocomplete="off"
+          aria-hidden="true"
+        />
+        <div class="note">
+          Ao confirmar, o presente fica reservado em seu nome. O site não
+          processa pagamentos, e seus dados são vistos apenas pelo casal.
+        </div>
+        <div class="note error" id="formError" role="alert" hidden></div>
         <div class="actions">
-          <button type="button" class="ghost" onclick="giftDialog.close()">
-            Cancelar</button
+          <button type="button" class="ghost" id="cancelGift">Cancelar</button
           ><button class="primary" id="submitGift" type="submit">
             Confirmar presente
           </button>
         </div>
       </form>
     </dialog>
+    <dialog id="thanksDialog">
+      <div class="modal">
+        <h2>Presente reservado ♡</h2>
+        <p id="thanksText"></p>
+        <p id="nextStep"></p>
+        <div class="pixkey" id="thanksPix"></div>
+        <div class="actions">
+          <button type="button" class="ghost" id="thanksCopy">
+            Copiar chave Pix</button
+          ><button type="button" class="primary" id="thanksClose">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </dialog>
     <div class="toast" id="toast"></div>
     <script>
       /* ==================== CONFIGURAÇÃO RÁPIDA ==================== */
       const CONFIG = {
-        coupleNames: "NOME & NOME",
-        weddingDate: "",
-        babyName: "",
-        babyMonth: "dezembro",
+        coupleNames: "Iarley & Hantanielym",
+        weddingDate: "12/08/2026",
+        babyName: "Lyan",
+        babyMonth: "Dezembro",
         introMessage:
           "Estamos começando uma nova fase — e, em {babyMonth}, nossa família também vai crescer. Escolha um presente ou contribua via Pix. O mais importante é ter você por perto. ♡",
         pixTitle: "Prefere presentear via Pix?",
         pixMessage:
           "Você pode contribuir com qualquer valor para essa nova fase.",
-        pixKey: "SUA-CHAVE-PIX-AQUI",
-        pixQrImage: "", // ex.: 'images/qr-pix.png'
+        pixKey: "18c48802-1682-4325-930e-1324f1e95b55",
+        pixQrImage: "images/QR-Code_PIX.png", // ex.: 'images/qr-pix.png'
+        // Exibida depois da reserva. {valor} = valor sugerido do presente.
+        nextStepMessage:
+          "Agora é só escolher: comprar o presente e entregar ao casal, ou enviar o valor sugerido ({valor}) via Pix usando a chave abaixo.",
         imageFolder: "images",
         imageExtensions: ["webp", "jpg", "jpeg", "png"],
-        appsScriptUrl: "", // cole aqui a URL /exec do Google Apps Script. Vazio = modo demonstração/local.
+        appsScriptUrl: "https://script.google.com/macros/s/AKfycbw9fZ7qeYj-1XABJLd8OvhG8LF8rCFunED6sg7uMQWr6eLWb07BVbrMAXs6rrjdlq5U/exec", // cole aqui a URL /exec do Google Apps Script. Vazio = modo demonstração/local.
       };
       /* ============================================================ */
-      const ITEMS = [
-        ["Air fryer", "Cozinha", 650, 1, "🍟"],
-        ["Jogo de panelas", "Cozinha", 900, 1, "🍳"],
-        ["Panela de pressão", "Cozinha", 320, 1, "🥘"],
-        ["Liquidificador", "Cozinha", 300, 1, "🥤"],
-        ["Mixer", "Cozinha", 250, 1, "🥣"],
-        ["Cafeteira", "Cozinha", 450, 1, "☕"],
-        ["Jogo de facas", "Cozinha", 350, 1, "🔪"],
-        ["Aparelho de jantar", "Mesa", 750, 2, "🍽️"],
-        ["Jogo de talheres", "Mesa", 420, 2, "🍴"],
-        ["Jogo de taças", "Mesa", 280, 2, "🥂"],
-        ["Jogo de copos", "Mesa", 220, 2, "🥛"],
-        ["Travessas e refratários", "Mesa", 300, 2, "🥧"],
-        ["Jogo de cama casal", "Quarto", 380, 3, "🛏️"],
-        ["Edredom casal", "Quarto", 450, 2, "☁️"],
-        ["Travesseiros", "Quarto", 180, 4, "🛌"],
-        ["Jogo de toalhas", "Banho", 260, 3, "🧺"],
-        ["Aspirador de pó", "Casa", 700, 1, "🧹"],
-        ["Ferro a vapor", "Casa", 280, 1, "👔"],
-        ["Kit ferramentas", "Casa", 300, 1, "🧰"],
-        ["Organizadores", "Casa", 180, 4, "🗃️"],
-        ["Carrinho de bebê", "Bebê", 1800, 1, "👶"],
-        ["Bebê conforto", "Bebê", 1100, 1, "🚗"],
-        ["Babá eletrônica", "Bebê", 700, 1, "📹"],
-        ["Banheira de bebê", "Bebê", 250, 1, "🛁"],
-        ["Kit enxoval", "Bebê", 400, 3, "🧸"],
-        ["Fraldas — cota", "Bebê", 150, 10, "🍼"],
-        ["Cadeira de alimentação", "Bebê", 600, 1, "🥄"],
-        ["Mala maternidade", "Bebê", 450, 1, "👜"],
-        ["Cota lua de mel", "Experiências", 300, 10, "✈️"],
-        ["Jantar especial", "Experiências", 400, 3, "❤️"],
-      ].map((x, i) => ({
-        id: i + 1,
-        name: x[0],
-        cat: x[1],
-        price: x[2],
-        qty: x[3],
-        emoji: x[4],
-        slug: x[0]
+      // Usados apenas no modo demonstração (appsScriptUrl vazio). Com o backend
+      // configurado, os presentes vêm da aba "Catalogo" da planilha.
+      const DEMO_ITEMS = [
+        [1, "Air fryer", "Cozinha", 650, 1, "🍟"],
+        [2, "Jogo de panelas", "Cozinha", 900, 1, "🍳"],
+        [3, "Panela de pressão", "Cozinha", 320, 1, "🥘"],
+        [4, "Liquidificador", "Cozinha", 300, 1, "🥤"],
+        [5, "Mixer", "Cozinha", 250, 1, "🥣"],
+        [6, "Cafeteira", "Cozinha", 450, 1, "☕"],
+        [7, "Jogo de facas", "Cozinha", 350, 1, "🔪"],
+        [8, "Aparelho de jantar", "Mesa", 750, 2, "🍽️"],
+        [9, "Jogo de talheres", "Mesa", 420, 2, "🍴"],
+        [10, "Jogo de taças", "Mesa", 280, 2, "🥂"],
+        [11, "Jogo de copos", "Mesa", 220, 2, "🥛"],
+        [12, "Travessas e refratários", "Mesa", 300, 2, "🥧"],
+        [13, "Jogo de cama casal", "Quarto", 380, 3, "🛏️"],
+        [14, "Edredom casal", "Quarto", 450, 2, "☁️"],
+        [15, "Travesseiros", "Quarto", 180, 4, "🛌"],
+        [16, "Jogo de toalhas", "Banho", 260, 3, "🧺"],
+        [17, "Aspirador de pó", "Casa", 700, 1, "🧹"],
+        [18, "Ferro a vapor", "Casa", 280, 1, "👔"],
+        [19, "Kit ferramentas", "Casa", 300, 1, "🧰"],
+        [20, "Organizadores", "Casa", 180, 4, "🗃️"],
+        [21, "Carrinho de bebê", "Bebê", 1800, 1, "👶"],
+        [22, "Bebê conforto", "Bebê", 1100, 1, "🚗"],
+        [23, "Babá eletrônica", "Bebê", 700, 1, "📹"],
+        [24, "Banheira de bebê", "Bebê", 250, 1, "🛁"],
+        [25, "Kit enxoval", "Bebê", 400, 3, "🧸"],
+        [26, "Fraldas — cota", "Bebê", 150, 10, "🍼"],
+        [27, "Cadeira de alimentação", "Bebê", 600, 1, "🥄"],
+        [28, "Mala maternidade", "Bebê", 450, 1, "👜"],
+        [29, "Cota lua de mel", "Experiências", 300, 10, "✈️"],
+        [30, "Jantar especial", "Experiências", 400, 3, "❤️"],
+      ].map(([id, name, cat, price, qty, emoji]) => ({
+        id,
+        name,
+        cat,
+        price,
+        qty,
+        emoji,
+      }));
+      // Só aceita a URL oficial de um Aplicativo da Web do Apps Script.
+      const remote = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(
+        CONFIG.appsScriptUrl,
+      );
+      // Código do convite vindo do link: https://seu-site/#c=CODIGO
+      let urlCode = (
+        new URLSearchParams(location.hash.slice(1)).get("c") ||
+        new URLSearchParams(location.search).get("c") ||
+        ""
+      )
+        .trim()
+        .slice(0, 100);
+      let items = [],
+        state = "loading",
+        inviteRequired = false,
+        current = "Todos";
+      function esc(v) {
+        return String(v).replace(
+          /[&<>"']/g,
+          (c) =>
+            ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+              c
+            ],
+        );
+      }
+      function brl(v) {
+        return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+      }
+      function slugify(name) {
+        return name
           .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[̀-ͯ]/g, "")
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)/g, ""),
-      }));
-      let gifts = [],
-        current = "Todos";
-      const remote = !!CONFIG.appsScriptUrl;
-      const cats = ["Todos", ...new Set(ITEMS.map((x) => x.cat))];
+          .replace(/(^-|-$)/g, "");
+      }
+      function normalizeItem(x) {
+        const qty = Math.max(0, Math.floor(Number(x.qty) || 0)),
+          name = String(x.name || "");
+        return {
+          id: Number(x.id),
+          name,
+          cat: String(x.cat || "Outros"),
+          price: Math.max(0, Number(x.price) || 0),
+          qty,
+          emoji: String(x.emoji || "🎁"),
+          reserved: Math.min(qty, Math.max(0, Number(x.reserved) || 0)),
+          slug: slugify(name),
+        };
+      }
       function setup() {
         document.title = `Lista de Casamento — ${CONFIG.coupleNames}`;
         title.textContent = CONFIG.coupleNames;
@@ -438,134 +557,199 @@
         document.querySelector(".pix h2").textContent = CONFIG.pixTitle;
         document.querySelector(".pix p").textContent = CONFIG.pixMessage;
         pixKey.textContent = CONFIG.pixKey;
-        if (CONFIG.pixQrImage)
-          qrBox.innerHTML = `<img src="${CONFIG.pixQrImage}" alt="QR Code Pix">`;
+        if (CONFIG.pixQrImage) {
+          const img = document.createElement("img");
+          img.src = CONFIG.pixQrImage;
+          img.alt = "QR Code Pix";
+          qrBox.replaceChildren(img);
+        }
         modeText.textContent = remote
           ? "Lista sincronizada"
-          : "Modo demonstração — dados salvos neste navegador";
+          : CONFIG.appsScriptUrl
+            ? "URL do Apps Script inválida — modo demonstração"
+            : "Modo demonstração — dados salvos neste navegador";
         modeDot.classList.toggle("online", remote);
       }
-      function reserved(id) {
-        return gifts
-          .filter((g) => Number(g.itemId) === id)
-          .reduce((a, g) => a + Number(g.qty), 0);
+      function imgSrc(x, n) {
+        return `${CONFIG.imageFolder}/${x.slug}.${CONFIG.imageExtensions[n]}`;
       }
       function giftMedia(x) {
-        return `<div class="media" id="media-${x.id}"><img src="${CONFIG.imageFolder}/${x.slug}.${CONFIG.imageExtensions[0]}" alt="${x.name}" onerror="tryNextImage(this,${x.id},1)"></div>`;
-      }
-      function tryNextImage(img, id, n) {
-        let x = ITEMS.find((i) => i.id === id);
-        if (n < CONFIG.imageExtensions.length) {
-          img.onerror = () => tryNextImage(img, id, n + 1);
-          img.src = `${CONFIG.imageFolder}/${x.slug}.${CONFIG.imageExtensions[n]}`;
-        } else {
-          document.getElementById(`media-${id}`).innerHTML =
-            `<div class="emoji">${x.emoji}</div>`;
-        }
+        const inner = x.slug
+          ? `<img src="${esc(imgSrc(x, 0))}" alt="${esc(x.name)}" data-id="${x.id}" data-ext="0">`
+          : `<div class="emoji">${esc(x.emoji)}</div>`;
+        return `<div class="media">${inner}</div>`;
       }
       function render() {
+        const cats = ["Todos", ...new Set(items.map((x) => x.cat))];
+        if (!cats.includes(current)) current = "Todos";
         filters.innerHTML = cats
           .map(
             (c) =>
-              `<button class="${c === current ? "active" : ""}" onclick="current='${c}';render()">${c}</button>`,
+              `<button class="${c === current ? "active" : ""}" data-cat="${esc(c)}">${esc(c)}</button>`,
           )
           .join("");
-        const list = ITEMS.filter(
-          (x) => current === "Todos" || x.cat === current,
-        );
-        grid.innerHTML = list
-          .map((x) => {
-            let left = Math.max(0, x.qty - reserved(x.id));
-            return `<article class="card ${left <= 0 ? "sold" : ""}">${giftMedia(x)}<div class="cat">${x.cat}</div><h3>${x.name}</h3><div class="price">≈ ${x.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div><div class="meta">${left > 0 ? `${left} de ${x.qty} disponível(is)` : "Presenteado ✓"}</div><button class="primary" ${left <= 0 ? "disabled" : ""} onclick="openGift(${x.id})">${left > 0 ? "Quero presentear" : "Já presenteado"}</button></article>`;
-          })
-          .join("");
-        let total = ITEMS.reduce((a, x) => a + x.qty, 0),
-          done = Math.min(
-            total,
-            gifts.reduce((a, g) => a + Number(g.qty), 0),
-          );
-        summary.textContent = `${done} de ${total} cotas já presenteadas • ${total - done} disponíveis`;
+        if (state === "loading")
+          grid.innerHTML = `<div class="empty">Carregando a lista…</div>`;
+        else if (state === "error")
+          grid.innerHTML = `<div class="empty">Não foi possível carregar a lista agora.<br><button class="primary" data-retry>Tentar novamente</button></div>`;
+        else
+          grid.innerHTML = items
+            .filter((x) => current === "Todos" || x.cat === current)
+            .map((x) => {
+              const left = x.qty - x.reserved;
+              return `<article class="card ${left <= 0 ? "sold" : ""}">${giftMedia(x)}<div class="cat">${esc(x.cat)}</div><h3>${esc(x.name)}</h3>${x.price ? `<div class="price">≈ ${brl(x.price)}</div>` : ""}<div class="meta">${left > 0 ? `${left} de ${x.qty} disponível(is)` : "Presenteado ✓"}</div><button class="primary" ${left <= 0 ? "disabled" : ""} data-gift="${x.id}">${left > 0 ? "Quero presentear" : "Já presenteado"}</button></article>`;
+            })
+            .join("");
+        const total = items.reduce((a, x) => a + x.qty, 0),
+          done = items.reduce((a, x) => a + x.reserved, 0);
+        summary.textContent =
+          state === "ready"
+            ? `${done} de ${total} cotas já presenteadas • ${total - done} disponíveis`
+            : "";
         progress.style.width = `${total ? (done / total) * 100 : 0}%`;
+      }
+      function localTotals() {
+        let saved = [];
+        try {
+          saved = JSON.parse(localStorage.getItem("weddingGifts") || "[]");
+        } catch (_) {}
+        const totals = {};
+        if (Array.isArray(saved))
+          saved.forEach(
+            (g) =>
+              (totals[g.itemId] = (totals[g.itemId] || 0) + (Number(g.qty) || 0)),
+          );
+        return { saved: Array.isArray(saved) ? saved : [], totals };
       }
       async function loadGifts() {
         if (!remote) {
-          gifts = JSON.parse(localStorage.getItem("weddingGifts") || "[]");
+          const { totals } = localTotals();
+          items = DEMO_ITEMS.map((x) =>
+            normalizeItem({ ...x, reserved: totals[x.id] || 0 }),
+          );
+          state = "ready";
           render();
           return;
         }
         try {
-          const r = await fetch(
-            `${CONFIG.appsScriptUrl}?action=list&t=${Date.now()}`,
-          );
+          const r = await fetch(`${CONFIG.appsScriptUrl}?t=${Date.now()}`, {
+            credentials: "omit",
+          });
           const data = await r.json();
           if (!data.ok) throw Error(data.error || "Falha ao carregar");
-          gifts = data.gifts || [];
-          render();
+          items = (data.items || []).map(normalizeItem).filter((x) => x.id > 0);
+          inviteRequired = !!data.inviteRequired;
+          state = "ready";
         } catch (e) {
-          showToast("Não foi possível sincronizar agora. Tente novamente.");
+          if (state !== "ready") state = "error";
+          else showToast("Não foi possível sincronizar agora. Tente novamente.");
           console.error(e);
         }
+        render();
       }
       function openGift(id) {
-        let x = ITEMS.find((i) => i.id === id),
-          left = Math.max(0, x.qty - reserved(id));
-        if (!left) return;
+        const x = items.find((i) => i.id === id),
+          left = x ? x.qty - x.reserved : 0;
+        if (left <= 0) return;
         itemId.value = id;
         modalTitle.textContent = `Presentear: ${x.name}`;
         giftQty.innerHTML = Array.from(
           { length: left },
           (_, i) => `<option value="${i + 1}">${i + 1}</option>`,
         ).join("");
+        const needCode = remote && inviteRequired && !urlCode;
+        inviteLabel.hidden = inviteCode.hidden = !needCode;
+        inviteCode.required = needCode;
+        formError.hidden = true;
         giftDialog.showModal();
+      }
+      function userError(message, code) {
+        const err = Error(message);
+        err.code = code || "invalid";
+        return err;
       }
       giftForm.onsubmit = async (e) => {
         e.preventDefault();
-        let id = +itemId.value,
+        const id = +itemId.value,
           qty = +giftQty.value,
-          item = ITEMS.find((x) => x.id === id),
-          payload = {
-            action: "reserve",
-            itemId: id,
-            itemName: item.name,
-            qty,
-            name: giverName.value.trim(),
-            email: giverEmail.value.trim(),
-            message: message.value.trim(),
-          };
+          item = items.find((x) => x.id === id);
+        if (!item) return;
+        const payload = {
+          action: "reserve",
+          itemId: id,
+          qty,
+          name: giverName.value.trim(),
+          email: giverEmail.value.trim(),
+          message: message.value.trim(),
+          code: urlCode || inviteCode.value.trim(),
+          hp: website.value,
+        };
         submitGift.disabled = true;
         submitGift.textContent = "Reservando…";
+        formError.hidden = true;
         try {
           if (remote) {
             const r = await fetch(CONFIG.appsScriptUrl, {
               method: "POST",
+              credentials: "omit",
               headers: { "Content-Type": "text/plain;charset=utf-8" },
               body: JSON.stringify(payload),
             });
             const data = await r.json();
             if (!data.ok)
-              throw Error(data.error || "Não foi possível reservar");
+              throw userError(
+                data.error || "Não foi possível reservar.",
+                data.code,
+              );
             await loadGifts();
           } else {
-            if (qty > item.qty - reserved(id))
-              throw Error("Essa quantidade acabou de ficar indisponível.");
-            gifts.push({ ...payload, date: new Date().toISOString() });
-            localStorage.setItem("weddingGifts", JSON.stringify(gifts));
-            render();
+            if (qty > item.qty - item.reserved)
+              throw userError("Essa quantidade acabou de ficar indisponível.");
+            // No modo demonstração nenhum dado pessoal é guardado.
+            const { saved } = localTotals();
+            saved.push({ itemId: id, qty, date: new Date().toISOString() });
+            localStorage.setItem("weddingGifts", JSON.stringify(saved));
+            await loadGifts();
           }
           giftDialog.close();
           giftForm.reset();
-          showToast("Presente reservado com carinho. Obrigado! ♡");
+          showThanks(item, qty, payload.name);
         } catch (err) {
-          showToast(err.message || "Não foi possível concluir.");
-          if (remote) await loadGifts();
+          if (!err.code) console.error(err);
+          if (err.code === "invite") {
+            urlCode = "";
+            inviteLabel.hidden = inviteCode.hidden = false;
+            inviteCode.required = true;
+          }
+          formError.textContent = err.code
+            ? err.message
+            : "Não foi possível concluir. Verifique sua conexão e tente novamente.";
+          formError.hidden = false;
+          if (remote && err.code === "unavailable") await loadGifts();
         } finally {
           submitGift.disabled = false;
           submitGift.textContent = "Confirmar presente";
         }
       };
-      function copyPix() {
-        navigator.clipboard?.writeText(CONFIG.pixKey);
-        showToast("Chave Pix copiada!");
+      function showThanks(item, qty, name) {
+        const first = name.split(/\s+/)[0];
+        thanksText.textContent = `Obrigado, ${first}! Reservamos ${qty}× ${item.name} em seu nome.`;
+        nextStep.textContent = CONFIG.nextStepMessage.replace(
+          "{valor}",
+          item.price ? brl(item.price * qty) : "que desejar",
+        );
+        thanksPix.textContent = CONFIG.pixKey;
+        thanksDialog.showModal();
+      }
+      async function copyPix(btn) {
+        try {
+          await navigator.clipboard.writeText(CONFIG.pixKey);
+          const label = btn.textContent;
+          btn.textContent = "Chave copiada ✓";
+          setTimeout(() => (btn.textContent = label), 2500);
+        } catch (_) {
+          showToast("Não foi possível copiar. Selecione a chave e copie.");
+        }
       }
       function showToast(t) {
         toast.textContent = t;
@@ -573,7 +757,44 @@
         clearTimeout(window.__toast);
         window.__toast = setTimeout(() => (toast.style.display = "none"), 3200);
       }
+      filters.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-cat]");
+        if (!btn) return;
+        current = btn.dataset.cat;
+        render();
+      });
+      grid.addEventListener("click", (e) => {
+        if (e.target.closest("[data-retry]")) {
+          state = "loading";
+          render();
+          loadGifts();
+          return;
+        }
+        const btn = e.target.closest("[data-gift]");
+        if (btn) openGift(+btn.dataset.gift);
+      });
+      // Foto não encontrada: tenta a próxima extensão e, por fim, mostra o emoji.
+      grid.addEventListener(
+        "error",
+        (e) => {
+          const img = e.target;
+          if (img.tagName !== "IMG") return;
+          const x = items.find((i) => i.id === +img.dataset.id),
+            n = +img.dataset.ext + 1;
+          if (x && n < CONFIG.imageExtensions.length) {
+            img.dataset.ext = n;
+            img.src = imgSrc(x, n);
+          } else
+            img.parentElement.innerHTML = `<div class="emoji">${esc(x ? x.emoji : "🎁")}</div>`;
+        },
+        true,
+      );
+      copyPixBtn.onclick = () => copyPix(copyPixBtn);
+      thanksCopy.onclick = () => copyPix(thanksCopy);
+      thanksClose.onclick = () => thanksDialog.close();
+      cancelGift.onclick = () => giftDialog.close();
       setup();
+      render();
       loadGifts();
     </script>
   </body>
