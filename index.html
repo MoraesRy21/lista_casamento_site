@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f7f2eb" />
+    <title>Lista de Casamento</title>
+    <style>
+      :root {
+        --bg: #f7f2eb;
+        --card: #fff;
+        --ink: #28241f;
+        --muted: #746d64;
+        --accent: #8a6f59;
+        --line: #e8ded4;
+        --ok: #466853;
+        --danger: #9a544d;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+      }
+      header {
+        padding: 62px 20px 42px;
+        text-align: center;
+        background: linear-gradient(135deg, #f1e4d8, #fffaf5);
+      }
+      h1 {
+        font-family: Georgia, serif;
+        font-size: clamp(36px, 7vw, 66px);
+        margin: 0 0 12px;
+        font-weight: 500;
+      }
+      .subtitle {
+        color: var(--muted);
+        max-width: 760px;
+        margin: auto;
+        line-height: 1.6;
+      }
+      .wrap {
+        max-width: 1160px;
+        margin: auto;
+        padding: 26px 18px 72px;
+      }
+      .status {
+        font-size: 12px;
+        display: inline-flex;
+        gap: 7px;
+        align-items: center;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid var(--line);
+        margin-bottom: 12px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #c99;
+      }
+      .dot.online {
+        background: #5c8b69;
+      }
+      .toolbar {
+        display: flex;
+        gap: 9px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        position: sticky;
+        top: 0;
+        background: rgba(247, 242, 235, 0.95);
+        padding: 12px 0;
+        z-index: 3;
+        backdrop-filter: blur(8px);
+      }
+      button {
+        font: inherit;
+      }
+      .toolbar button,
+      .primary,
+      .ghost {
+        border: 1px solid var(--line);
+        background: white;
+        border-radius: 999px;
+        padding: 10px 15px;
+        cursor: pointer;
+      }
+      .toolbar button.active,
+      .primary {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+      .summary {
+        margin: 18px 0 20px;
+        color: var(--muted);
+      }
+      .progress {
+        height: 8px;
+        background: #e9dfd5;
+        border-radius: 99px;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+      .progress > i {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+        width: 0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+        gap: 16px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 19px;
+        padding: 19px;
+        display: flex;
+        flex-direction: column;
+        min-height: 225px;
+        box-shadow: 0 7px 24px #59462d0b;
+      }
+      .media {
+        height: 150px;
+        border-radius: 14px;
+        background: #f3ece5;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+      .media img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .emoji {
+        font-size: 38px;
+      }
+      .cat {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        margin-top: 13px;
+      }
+      .card h3 {
+        margin: 5px 0 8px;
+      }
+      .price {
+        font-weight: 750;
+        font-size: 20px;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 6px 0 17px;
+      }
+      .card button {
+        margin-top: auto;
+      }
+      .sold {
+        opacity: 0.55;
+      }
+      .pix {
+        margin-top: 38px;
+        background: #30362f;
+        color: white;
+        border-radius: 25px;
+        padding: 30px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 26px;
+        align-items: center;
+      }
+      .pix small {
+        color: #d8dfd9;
+        letter-spacing: 0.1em;
+      }
+      .pix h2 {
+        font-family: Georgia, serif;
+        font-size: 30px;
+        margin: 8px 0;
+      }
+      .pixkey {
+        font-family: ui-monospace, monospace;
+        word-break: break-all;
+        background: #ffffff15;
+        padding: 11px;
+        border-radius: 10px;
+        margin: 14px 0;
+      }
+      .qr {
+        width: 170px;
+        height: 170px;
+        background: white;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        color: #555;
+        text-align: center;
+        padding: 15px;
+        font-size: 12px;
+        overflow: hidden;
+      }
+      .qr img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      dialog {
+        border: 0;
+        border-radius: 20px;
+        padding: 0;
+        max-width: 490px;
+        width: calc(100% - 30px);
+        box-shadow: 0 25px 80px #0004;
+      }
+      dialog::backdrop {
+        background: #0008;
+      }
+      .modal {
+        padding: 26px;
+      }
+      .modal h2 {
+        margin-top: 0;
+      }
+      .modal label {
+        display: block;
+        font-size: 13px;
+        margin: 13px 0 5px;
+      }
+      .modal input,
+      .modal textarea,
+      .modal select {
+        width: 100%;
+        padding: 11px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        font: inherit;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 19px;
+      }
+      .ghost {
+        background: #eee7df;
+      }
+      .toast {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        background: #26352c;
+        color: #fff;
+        padding: 13px 16px;
+        border-radius: 12px;
+        display: none;
+        z-index: 10;
+        max-width: 360px;
+      }
+      .note {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 12px;
+        line-height: 1.5;
+      }
+      @media (max-width: 620px) {
+        header {
+          padding-top: 44px;
+        }
+        .pix {
+          grid-template-columns: 1fr;
+        }
+        .qr {
+          width: 100%;
+          height: 150px;
+        }
+        .toolbar {
+          position: static;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1 id="title">Nossa Lista de Casamento</h1>
+      <p class="subtitle" id="subtitle">
+        Estamos começando uma nova fase — e nossa família também vai crescer.
+        Escolha um presente ou contribua via Pix. O mais importante é ter você
+        por perto. ♡
+      </p>
+    </header>
+    <main class="wrap">
+      <div class="status">
+        <span class="dot" id="modeDot"></span
+        ><span id="modeText">Modo demonstração</span>
+      </div>
+      <div class="toolbar" id="filters"></div>
+      <div class="summary">
+        <span id="summary"></span>
+        <div class="progress"><i id="progress"></i></div>
+      </div>
+      <section class="grid" id="grid"></section>
+      <section class="pix">
+        <div>
+          <small>CONTRIBUIÇÃO LIVRE</small>
+          <h2>Prefere presentear via Pix?</h2>
+          <p>Você pode contribuir com qualquer valor para essa nova fase.</p>
+          <div class="pixkey" id="pixKey">SUA-CHAVE-PIX-AQUI</div>
+          <button class="primary" onclick="copyPix()">Copiar chave Pix</button>
+          <div class="note">
+            O Pix é feito diretamente no aplicativo do banco. A página não
+            processa pagamentos.
+          </div>
+        </div>
+        <div class="qr" id="qrBox">Insira a imagem<br />do QR Code Pix</div>
+      </section>
+    </main>
+    <dialog id="giftDialog">
+      <form class="modal" id="giftForm">
+        <h2 id="modalTitle">Presentear</h2>
+        <input type="hidden" id="itemId" /><label>Seu nome *</label
+        ><input id="giverName" autocomplete="name" required /><label
+          >Seu e-mail *</label
+        ><input
+          id="giverEmail"
+          type="email"
+          autocomplete="email"
+          required
+        /><label>Quantidade</label
+        ><select id="giftQty"></select
+        ><label>Mensagem para o casal</label
+        ><textarea id="message" rows="3"></textarea>
+        <div class="actions">
+          <button type="button" class="ghost" onclick="giftDialog.close()">
+            Cancelar</button
+          ><button class="primary" id="submitGift" type="submit">
+            Confirmar presente
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <div class="toast" id="toast"></div>
+    <script>
+      /* ==================== CONFIGURAÇÃO RÁPIDA ==================== */
+      const CONFIG = {
+        coupleNames: "NOME & NOME",
+        weddingDate: "",
+        babyName: "",
+        babyMonth: "dezembro",
+        introMessage:
+          "Estamos começando uma nova fase — e, em {babyMonth}, nossa família também vai crescer. Escolha um presente ou contribua via Pix. O mais importante é ter você por perto. ♡",
+        pixTitle: "Prefere presentear via Pix?",
+        pixMessage:
+          "Você pode contribuir com qualquer valor para essa nova fase.",
+        pixKey: "SUA-CHAVE-PIX-AQUI",
+        pixQrImage: "", // ex.: 'images/qr-pix.png'
+        imageFolder: "images",
+        imageExtensions: ["webp", "jpg", "jpeg", "png"],
+        appsScriptUrl: "", // cole aqui a URL /exec do Google Apps Script. Vazio = modo demonstração/local.
+      };
+      /* ============================================================ */
+      const ITEMS = [
+        ["Air fryer", "Cozinha", 650, 1, "🍟"],
+        ["Jogo de panelas", "Cozinha", 900, 1, "🍳"],
+        ["Panela de pressão", "Cozinha", 320, 1, "🥘"],
+        ["Liquidificador", "Cozinha", 300, 1, "🥤"],
+        ["Mixer", "Cozinha", 250, 1, "🥣"],
+        ["Cafeteira", "Cozinha", 450, 1, "☕"],
+        ["Jogo de facas", "Cozinha", 350, 1, "🔪"],
+        ["Aparelho de jantar", "Mesa", 750, 2, "🍽️"],
+        ["Jogo de talheres", "Mesa", 420, 2, "🍴"],
+        ["Jogo de taças", "Mesa", 280, 2, "🥂"],
+        ["Jogo de copos", "Mesa", 220, 2, "🥛"],
+        ["Travessas e refratários", "Mesa", 300, 2, "🥧"],
+        ["Jogo de cama casal", "Quarto", 380, 3, "🛏️"],
+        ["Edredom casal", "Quarto", 450, 2, "☁️"],
+        ["Travesseiros", "Quarto", 180, 4, "🛌"],
+        ["Jogo de toalhas", "Banho", 260, 3, "🧺"],
+        ["Aspirador de pó", "Casa", 700, 1, "🧹"],
+        ["Ferro a vapor", "Casa", 280, 1, "👔"],
+        ["Kit ferramentas", "Casa", 300, 1, "🧰"],
+        ["Organizadores", "Casa", 180, 4, "🗃️"],
+        ["Carrinho de bebê", "Bebê", 1800, 1, "👶"],
+        ["Bebê conforto", "Bebê", 1100, 1, "🚗"],
+        ["Babá eletrônica", "Bebê", 700, 1, "📹"],
+        ["Banheira de bebê", "Bebê", 250, 1, "🛁"],
+        ["Kit enxoval", "Bebê", 400, 3, "🧸"],
+        ["Fraldas — cota", "Bebê", 150, 10, "🍼"],
+        ["Cadeira de alimentação", "Bebê", 600, 1, "🥄"],
+        ["Mala maternidade", "Bebê", 450, 1, "👜"],
+        ["Cota lua de mel", "Experiências", 300, 10, "✈️"],
+        ["Jantar especial", "Experiências", 400, 3, "❤️"],
+      ].map((x, i) => ({
+        id: i + 1,
+        name: x[0],
+        cat: x[1],
+        price: x[2],
+        qty: x[3],
+        emoji: x[4],
+        slug: x[0]
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, ""),
+      }));
+      let gifts = [],
+        current = "Todos";
+      const remote = !!CONFIG.appsScriptUrl;
+      const cats = ["Todos", ...new Set(ITEMS.map((x) => x.cat))];
+      function setup() {
+        document.title = `Lista de Casamento — ${CONFIG.coupleNames}`;
+        title.textContent = CONFIG.coupleNames;
+        subtitle.textContent = CONFIG.introMessage
+          .replace("{babyMonth}", CONFIG.babyMonth)
+          .replace("{babyName}", CONFIG.babyName || "");
+        document.querySelector(".pix h2").textContent = CONFIG.pixTitle;
+        document.querySelector(".pix p").textContent = CONFIG.pixMessage;
+        pixKey.textContent = CONFIG.pixKey;
+        if (CONFIG.pixQrImage)
+          qrBox.innerHTML = `<img src="${CONFIG.pixQrImage}" alt="QR Code Pix">`;
+        modeText.textContent = remote
+          ? "Lista sincronizada"
+          : "Modo demonstração — dados salvos neste navegador";
+        modeDot.classList.toggle("online", remote);
+      }
+      function reserved(id) {
+        return gifts
+          .filter((g) => Number(g.itemId) === id)
+          .reduce((a, g) => a + Number(g.qty), 0);
+      }
+      function giftMedia(x) {
+        return `<div class="media" id="media-${x.id}"><img src="${CONFIG.imageFolder}/${x.slug}.${CONFIG.imageExtensions[0]}" alt="${x.name}" onerror="tryNextImage(this,${x.id},1)"></div>`;
+      }
+      function tryNextImage(img, id, n) {
+        let x = ITEMS.find((i) => i.id === id);
+        if (n < CONFIG.imageExtensions.length) {
+          img.onerror = () => tryNextImage(img, id, n + 1);
+          img.src = `${CONFIG.imageFolder}/${x.slug}.${CONFIG.imageExtensions[n]}`;
+        } else {
+          document.getElementById(`media-${id}`).innerHTML =
+            `<div class="emoji">${x.emoji}</div>`;
+        }
+      }
+      function render() {
+        filters.innerHTML = cats
+          .map(
+            (c) =>
+              `<button class="${c === current ? "active" : ""}" onclick="current='${c}';render()">${c}</button>`,
+          )
+          .join("");
+        const list = ITEMS.filter(
+          (x) => current === "Todos" || x.cat === current,
+        );
+        grid.innerHTML = list
+          .map((x) => {
+            let left = Math.max(0, x.qty - reserved(x.id));
+            return `<article class="card ${left <= 0 ? "sold" : ""}">${giftMedia(x)}<div class="cat">${x.cat}</div><h3>${x.name}</h3><div class="price">≈ ${x.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div><div class="meta">${left > 0 ? `${left} de ${x.qty} disponível(is)` : "Presenteado ✓"}</div><button class="primary" ${left <= 0 ? "disabled" : ""} onclick="openGift(${x.id})">${left > 0 ? "Quero presentear" : "Já presenteado"}</button></article>`;
+          })
+          .join("");
+        let total = ITEMS.reduce((a, x) => a + x.qty, 0),
+          done = Math.min(
+            total,
+            gifts.reduce((a, g) => a + Number(g.qty), 0),
+          );
+        summary.textContent = `${done} de ${total} cotas já presenteadas • ${total - done} disponíveis`;
+        progress.style.width = `${total ? (done / total) * 100 : 0}%`;
+      }
+      async function loadGifts() {
+        if (!remote) {
+          gifts = JSON.parse(localStorage.getItem("weddingGifts") || "[]");
+          render();
+          return;
+        }
+        try {
+          const r = await fetch(
+            `${CONFIG.appsScriptUrl}?action=list&t=${Date.now()}`,
+          );
+          const data = await r.json();
+          if (!data.ok) throw Error(data.error || "Falha ao carregar");
+          gifts = data.gifts || [];
+          render();
+        } catch (e) {
+          showToast("Não foi possível sincronizar agora. Tente novamente.");
+          console.error(e);
+        }
+      }
+      function openGift(id) {
+        let x = ITEMS.find((i) => i.id === id),
+          left = Math.max(0, x.qty - reserved(id));
+        if (!left) return;
+        itemId.value = id;
+        modalTitle.textContent = `Presentear: ${x.name}`;
+        giftQty.innerHTML = Array.from(
+          { length: left },
+          (_, i) => `<option value="${i + 1}">${i + 1}</option>`,
+        ).join("");
+        giftDialog.showModal();
+      }
+      giftForm.onsubmit = async (e) => {
+        e.preventDefault();
+        let id = +itemId.value,
+          qty = +giftQty.value,
+          item = ITEMS.find((x) => x.id === id),
+          payload = {
+            action: "reserve",
+            itemId: id,
+            itemName: item.name,
+            qty,
+            name: giverName.value.trim(),
+            email: giverEmail.value.trim(),
+            message: message.value.trim(),
+          };
+        submitGift.disabled = true;
+        submitGift.textContent = "Reservando…";
+        try {
+          if (remote) {
+            const r = await fetch(CONFIG.appsScriptUrl, {
+              method: "POST",
+              headers: { "Content-Type": "text/plain;charset=utf-8" },
+              body: JSON.stringify(payload),
+            });
+            const data = await r.json();
+            if (!data.ok)
+              throw Error(data.error || "Não foi possível reservar");
+            await loadGifts();
+          } else {
+            if (qty > item.qty - reserved(id))
+              throw Error("Essa quantidade acabou de ficar indisponível.");
+            gifts.push({ ...payload, date: new Date().toISOString() });
+            localStorage.setItem("weddingGifts", JSON.stringify(gifts));
+            render();
+          }
+          giftDialog.close();
+          giftForm.reset();
+          showToast("Presente reservado com carinho. Obrigado! ♡");
+        } catch (err) {
+          showToast(err.message || "Não foi possível concluir.");
+          if (remote) await loadGifts();
+        } finally {
+          submitGift.disabled = false;
+          submitGift.textContent = "Confirmar presente";
+        }
+      };
+      function copyPix() {
+        navigator.clipboard?.writeText(CONFIG.pixKey);
+        showToast("Chave Pix copiada!");
+      }
+      function showToast(t) {
+        toast.textContent = t;
+        toast.style.display = "block";
+        clearTimeout(window.__toast);
+        window.__toast = setTimeout(() => (toast.style.display = "none"), 3200);
+      }
+      setup();
+      loadGifts();
+    </script>
+  </body>
+</html>
