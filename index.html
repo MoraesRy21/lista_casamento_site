@@ -7,7 +7,7 @@
     <meta name="referrer" content="no-referrer" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: https:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'"
     />
     <title>Lista de Casamento</title>
     <style>
@@ -152,10 +152,22 @@
         place-items: center;
         overflow: hidden;
       }
+      /* Foto inteira, sem cortes: fotos de produto costumam ser quadradas e com
+         fundo branco, então o quadro fica branco para a borda não aparecer. */
+      .media:has(img) {
+        position: relative;
+        height: 190px;
+        background: #fff;
+        border: 1px solid var(--line);
+      }
       .media img {
+        /* absoluto: como item do grid, height: 100% não limitava a altura */
+        position: absolute;
+        inset: 0;
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain;
+        padding: 8px;
       }
       .emoji {
         font-size: 38px;
@@ -178,6 +190,20 @@
         color: var(--muted);
         font-size: 13px;
         margin: 6px 0 17px;
+      }
+      .desc {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+        margin-bottom: 8px;
+      }
+      .model {
+        font-size: 13px;
+        color: var(--accent);
+        margin: -9px 0 15px;
+      }
+      .modal a {
+        color: var(--accent);
       }
       .card button {
         margin-top: auto;
@@ -423,6 +449,7 @@
       <div class="modal">
         <h2>Presente reservado ♡</h2>
         <p id="thanksText"></p>
+        <p id="thanksModel" hidden></p>
         <p id="nextStep"></p>
         <div class="pixkey" id="thanksPix"></div>
         <div class="actions">
@@ -452,6 +479,7 @@
         // Exibida depois da reserva. {valor} = valor sugerido do presente.
         nextStepMessage:
           "Agora é só escolher: comprar o presente e entregar ao casal, ou enviar o valor sugerido ({valor}) via Pix usando a chave abaixo.",
+        faviconEmoji: "💍", // ícone da aba do navegador
         imageFolder: "images",
         imageExtensions: ["webp", "jpg", "jpeg", "png"],
         appsScriptUrl: "https://script.google.com/macros/s/AKfycbw9fZ7qeYj-1XABJLd8OvhG8LF8rCFunED6sg7uMQWr6eLWb07BVbrMAXs6rrjdlq5U/exec", // cole aqui a URL /exec do Google Apps Script. Vazio = modo demonstração/local.
@@ -534,6 +562,15 @@
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/(^-|-$)/g, "");
       }
+      // Só links https viram <a>; qualquer outro esquema (javascript:, data:…) é descartado.
+      function safeLink(v) {
+        try {
+          const u = new URL(String(v || ""));
+          return u.protocol === "https:" ? u.href : "";
+        } catch (_) {
+          return "";
+        }
+      }
       function normalizeItem(x) {
         const qty = Math.max(0, Math.floor(Number(x.qty) || 0)),
           name = String(x.name || "");
@@ -544,6 +581,9 @@
           price: Math.max(0, Number(x.price) || 0),
           qty,
           emoji: String(x.emoji || "🎁"),
+          desc: String(x.desc || "").slice(0, 200),
+          link: safeLink(x.link),
+          image: safeLink(x.image),
           reserved: Math.min(qty, Math.max(0, Number(x.reserved) || 0)),
           slug: slugify(name),
         };
@@ -569,14 +609,23 @@
             ? "URL do Apps Script inválida — modo demonstração"
             : "Modo demonstração — dados salvos neste navegador";
         modeDot.classList.toggle("online", remote);
+        if (CONFIG.faviconEmoji) {
+          const icon = document.createElement("link");
+          icon.rel = "icon";
+          icon.href = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${esc(CONFIG.faviconEmoji)}</text></svg>`)}`;
+          document.head.append(icon);
+        }
       }
       function imgSrc(x, n) {
         return `${CONFIG.imageFolder}/${x.slug}.${CONFIG.imageExtensions[n]}`;
       }
       function giftMedia(x) {
-        const inner = x.slug
-          ? `<img src="${esc(imgSrc(x, 0))}" alt="${esc(x.name)}" data-id="${x.id}" data-ext="0">`
-          : `<div class="emoji">${esc(x.emoji)}</div>`;
+        // Ordem: foto da planilha (coluna "imagem") → pasta images → emoji.
+        const inner = x.image
+          ? `<img src="${esc(x.image)}" alt="${esc(x.name)}" data-id="${x.id}" data-ext="-1" referrerpolicy="no-referrer">`
+          : x.slug
+            ? `<img src="${esc(imgSrc(x, 0))}" alt="${esc(x.name)}" data-id="${x.id}" data-ext="0">`
+            : `<div class="emoji">${esc(x.emoji)}</div>`;
         return `<div class="media">${inner}</div>`;
       }
       function render() {
@@ -597,7 +646,7 @@
             .filter((x) => current === "Todos" || x.cat === current)
             .map((x) => {
               const left = x.qty - x.reserved;
-              return `<article class="card ${left <= 0 ? "sold" : ""}">${giftMedia(x)}<div class="cat">${esc(x.cat)}</div><h3>${esc(x.name)}</h3>${x.price ? `<div class="price">≈ ${brl(x.price)}</div>` : ""}<div class="meta">${left > 0 ? `${left} de ${x.qty} disponível(is)` : "Presenteado ✓"}</div><button class="primary" ${left <= 0 ? "disabled" : ""} data-gift="${x.id}">${left > 0 ? "Quero presentear" : "Já presenteado"}</button></article>`;
+              return `<article class="card ${left <= 0 ? "sold" : ""}">${giftMedia(x)}<div class="cat">${esc(x.cat)}</div><h3>${esc(x.name)}</h3>${x.desc ? `<div class="desc">${esc(x.desc)}</div>` : ""}${x.price ? `<div class="price">≈ ${brl(x.price)}</div>` : ""}<div class="meta">${left > 0 ? `${left} de ${x.qty} disponível(is)` : "Presenteado ✓"}</div>${x.link ? `<a class="model" href="${esc(x.link)}" target="_blank" rel="noopener noreferrer">Ver modelo sugerido ↗</a>` : ""}<button class="primary" ${left <= 0 ? "disabled" : ""} data-gift="${x.id}">${left > 0 ? "Quero presentear" : "Já presenteado"}</button></article>`;
             })
             .join("");
         const total = items.reduce((a, x) => a + x.qty, 0),
@@ -738,6 +787,17 @@
           "{valor}",
           item.price ? brl(item.price * qty) : "que desejar",
         );
+        thanksModel.replaceChildren();
+        if (item.desc) thanksModel.append(`Modelo: ${item.desc} `);
+        if (item.link) {
+          const a = document.createElement("a");
+          a.href = item.link;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = "Ver modelo sugerido ↗";
+          thanksModel.append(a);
+        }
+        thanksModel.hidden = !item.desc && !item.link;
         thanksPix.textContent = CONFIG.pixKey;
         thanksDialog.showModal();
       }
@@ -781,7 +841,7 @@
           if (img.tagName !== "IMG") return;
           const x = items.find((i) => i.id === +img.dataset.id),
             n = +img.dataset.ext + 1;
-          if (x && n < CONFIG.imageExtensions.length) {
+          if (x && x.slug && n < CONFIG.imageExtensions.length) {
             img.dataset.ext = n;
             img.src = imgSrc(x, n);
           } else

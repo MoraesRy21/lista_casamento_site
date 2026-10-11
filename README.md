@@ -85,6 +85,17 @@ Edite direto na planilha; o site reflete a mudança ao recarregar, sem novo depl
 - **`quantidade`** — total de cotas do item.
 - **`preco`** — valor sugerido (deixe `0` para não exibir).
 - **`ativo`** — escreva `não` para ocultar um item sem apagá-lo.
+- **`descricao`** (opcional) — modelo específico, cor, voltagem, tamanho. Ex.: `Mondial 5 L, preta, 220 V`. Até 200 caracteres.
+- **`link`** (opcional) — página do produto em uma loja, como referência. Precisa começar com `https://`. Aparece como "Ver modelo sugerido" no card e na tela de confirmação.
+
+- **`imagem`** (opcional) — foto do presente, sem precisar mexer no repositório. Aceita:
+  - o endereço direto de uma imagem (`https://…`), por exemplo clicando com o botão direito na foto do produto em uma loja e escolhendo "Copiar endereço da imagem";
+  - um link de compartilhamento do Google Drive. O arquivo precisa estar compartilhado como **Qualquer pessoa com o link → Leitor**.
+
+  Se a foto não carregar, o site usa a foto da pasta `images` e, por fim, o emoji.
+- **`categoria`** — texto livre. Os filtros do site são montados a partir das categorias dos itens ativos: renomear, criar ou esvaziar uma categoria na planilha muda os filtros automaticamente. Escreva sempre igual (`Cozinha` e `cozinha` viram dois filtros).
+
+As colunas `descricao`, `link` e `imagem` são localizadas pelo nome do cabeçalho. Se a sua planilha foi criada antes de elas existirem, rode **Lista de Casamento → Configurar planilha** para adicioná-las.
 
 ### Fotos dos presentes
 

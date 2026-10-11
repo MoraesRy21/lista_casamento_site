@@ -31,6 +31,9 @@ const CATALOG_HEADERS = [
   "quantidade",
   "emoji",
   "ativo",
+  "descricao", // opcional: modelo, cor, voltagem…
+  "link", // opcional: página do produto (https://…)
+  "imagem", // opcional: endereço da foto (https://…) ou link do Google Drive
 ];
 const INVITE_PROP = "INVITE_CODE";
 const MAX_BODY_CHARS = 4000;
@@ -146,7 +149,7 @@ function setupSheets_() {
   let catalog = ss.getSheetByName(SHEET_CATALOG);
   if (!catalog) catalog = ss.insertSheet(SHEET_CATALOG);
   if (catalog.getLastRow() === 0) {
-    const rows = DEFAULT_CATALOG.map((r) => r.concat(["sim"]));
+    const rows = DEFAULT_CATALOG.map((r) => r.concat(["sim", "", "", ""]));
     catalog
       .getRange(1, 1, 1, CATALOG_HEADERS.length)
       .setValues([CATALOG_HEADERS]);
@@ -154,15 +157,50 @@ function setupSheets_() {
       .getRange(2, 1, rows.length, CATALOG_HEADERS.length)
       .setValues(rows);
     catalog.setFrozenRows(1);
+  } else {
+    // Planilhas criadas por versões anteriores: acrescenta os cabeçalhos novos
+    // depois da última coluna usada, sem mexer nas colunas existentes.
+    const head = catalog.getDataRange().getValues()[0];
+    let next = head.length + 1;
+    ["descricao", "link", "imagem"].forEach((h) => {
+      if (headerIndex_(head, h) < 0) catalog.getRange(1, next++).setValue(h);
+    });
   }
+}
+// As colunas opcionais são localizadas pelo nome do cabeçalho, não pela posição.
+function headerIndex_(head, name) {
+  return head.findIndex(
+    (h) =>
+      String(h)
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "") === name,
+  );
+}
+function safeLink_(value) {
+  const url = clean_(value, 500);
+  return /^https:\/\/[^\s<>"'`]+$/i.test(url) ? url : "";
+}
+// Links de compartilhamento do Google Drive abrem uma página, não a imagem;
+// converte para o endereço que devolve a imagem em si.
+function imageUrl_(value) {
+  const url = safeLink_(value);
+  const m = url.match(
+    /^https:\/\/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:[^#]*&)?id=)([\w-]{10,})/i,
+  );
+  return m ? "https://drive.google.com/thumbnail?sz=w1000&id=" + m[1] : url;
 }
 function readCatalog_() {
   const sh = ss_().getSheetByName(SHEET_CATALOG);
   if (!sh || sh.getLastRow() < 2) return [];
   const seen = {};
   const items = [];
-  sh.getDataRange()
-    .getValues()
+  const values = sh.getDataRange().getValues();
+  const descCol = headerIndex_(values[0], "descricao"),
+    linkCol = headerIndex_(values[0], "link"),
+    imgCol = headerIndex_(values[0], "imagem");
+  values
     .slice(1)
     .forEach((r) => {
       const id = Number(r[0]),
@@ -179,6 +217,9 @@ function readCatalog_() {
         price: isFinite(price) && price > 0 ? price : 0,
         qty,
         emoji: clean_(r[5], 8) || "🎁",
+        desc: descCol < 0 ? "" : clean_(r[descCol], 200),
+        link: linkCol < 0 ? "" : safeLink_(r[linkCol]),
+        image: imgCol < 0 ? "" : imageUrl_(r[imgCol]),
       });
     });
   return items;
@@ -227,6 +268,9 @@ function doGet() {
       price: i.price,
       qty: i.qty,
       emoji: i.emoji,
+      desc: i.desc,
+      link: i.link,
+      image: i.image,
       reserved: Math.min(i.qty, used[i.id] || 0),
     }));
     return json_({ ok: true, items, inviteRequired: !!inviteCode_() });
