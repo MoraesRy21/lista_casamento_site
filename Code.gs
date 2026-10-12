@@ -35,6 +35,9 @@ const CATALOG_HEADERS = [
   "link", // opcional: página do produto (https://…)
   "imagem", // opcional: endereço da foto (https://…) ou link do Google Drive
 ];
+// Aumente a cada alteração deste arquivo. Abrir a URL /exec no navegador mostra
+// "version": se o número for antigo, falta publicar uma nova versão da implantação.
+const VERSION = 5;
 const INVITE_PROP = "INVITE_CODE";
 const ADDRESS_PROP = "DELIVERY_ADDRESS";
 const MAX_BODY_CHARS = 4000;
@@ -274,7 +277,12 @@ function doGet() {
       image: i.image,
       reserved: Math.min(i.qty, used[i.id] || 0),
     }));
-    return json_({ ok: true, items, inviteRequired: !!inviteCode_() });
+    return json_({
+      ok: true,
+      version: VERSION,
+      items,
+      inviteRequired: !!inviteCode_(),
+    });
   } catch (err) {
     return fail_(err);
   }
