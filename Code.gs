@@ -36,6 +36,7 @@ const CATALOG_HEADERS = [
   "imagem", // opcional: endereço da foto (https://…) ou link do Google Drive
 ];
 const INVITE_PROP = "INVITE_CODE";
+const ADDRESS_PROP = "DELIVERY_ADDRESS";
 const MAX_BODY_CHARS = 4000;
 const MAX_RESERVATIONS_PER_HOUR = 40; // teto global, contém abuso automatizado
 const MAX_RESERVATIONS_PER_EMAIL = 6;
@@ -365,7 +366,12 @@ function doPost(e) {
         safeCell_(message),
       ]);
     cache.put(bucket, String(count + 1), 3600);
-    return json_({ ok: true });
+    // O endereço só é revelado a quem acabou de reservar com o código do
+    // convite. Sem código configurado, ele nunca é enviado.
+    const address = expected
+      ? PropertiesService.getScriptProperties().getProperty(ADDRESS_PROP) || ""
+      : "";
+    return json_(address ? { ok: true, address } : { ok: true });
   } catch (err) {
     return fail_(err);
   } finally {
@@ -383,6 +389,8 @@ function onOpen() {
     .addItem("Gerar código do convite", "gerarCodigoConvite")
     .addItem("Ver código do convite", "verCodigoConvite")
     .addItem("Remover código do convite", "removerCodigoConvite")
+    .addSeparator()
+    .addItem("Definir endereço de entrega", "definirEnderecoEntrega")
     .addToUi();
 }
 function configurar() {
@@ -423,6 +431,30 @@ function verCodigoConvite() {
       ? "Código do convite: " + code + "\n\nFinal do link:  #c=" + code
       : "Nenhum código definido: qualquer pessoa com o link do site pode reservar.",
   );
+}
+function definirEnderecoEntrega() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getScriptProperties();
+  const current = props.getProperty(ADDRESS_PROP) || "";
+  const res = ui.prompt(
+    "Endereço de entrega",
+    (current ? "Atual: " + current : "Nenhum endereço definido.") +
+      "\n\nDigite o endereço completo (use ; para quebrar linha). " +
+      "Deixe em branco para remover.\nEle só é mostrado ao convidado depois " +
+      "da reserva, e apenas se houver código do convite.",
+    ui.ButtonSet.OK_CANCEL,
+  );
+  if (res.getSelectedButton() !== ui.Button.OK) return;
+  const address = res
+    .getResponseText()
+    .split(";")
+    .map((line) => clean_(line, 200))
+    .filter(String)
+    .join("\n")
+    .slice(0, 500);
+  if (address) props.setProperty(ADDRESS_PROP, address);
+  else props.deleteProperty(ADDRESS_PROP);
+  ui.alert(address ? "Endereço salvo:\n\n" + address : "Endereço removido.");
 }
 function removerCodigoConvite() {
   PropertiesService.getScriptProperties().deleteProperty(INVITE_PROP);

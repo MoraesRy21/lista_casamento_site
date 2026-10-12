@@ -205,6 +205,14 @@
         color: var(--accent);
         margin: -9px 0 15px;
       }
+      .modal .pixkey {
+        margin: 0 0 10px;
+      }
+      .modal .address {
+        font-family: inherit;
+        white-space: pre-line;
+        line-height: 1.5;
+      }
       .modal a {
         color: var(--accent);
       }
@@ -461,6 +469,17 @@
         <p id="thanksText"></p>
         <p id="thanksModel" hidden></p>
         <p id="nextStep"></p>
+        <div id="thanksAddressBox" hidden>
+          <label>Endereço para entrega</label>
+          <div class="pixkey address" id="thanksAddress"></div>
+          <button type="button" class="ghost" id="thanksCopyAddress">
+            Copiar endereço
+          </button>
+          <div class="note">
+            Guarde este endereço: por privacidade, ele só aparece nesta tela.
+          </div>
+        </div>
+        <label>Chave Pix</label>
         <div class="pixkey" id="thanksPix"></div>
         <div class="actions">
           <button type="button" class="ghost" id="thanksCopy">
@@ -746,6 +765,7 @@
         submitGift.disabled = true;
         submitGift.textContent = "Reservando…";
         formError.hidden = true;
+        let address = "";
         try {
           if (remote) {
             const r = await fetch(CONFIG.appsScriptUrl, {
@@ -760,6 +780,8 @@
                 data.error || "Não foi possível reservar.",
                 data.code,
               );
+            // O endereço nunca fica no site: o servidor só o envia após a reserva.
+            address = String(data.address || "").slice(0, 500);
             await loadGifts();
           } else {
             if (qty > item.qty - item.reserved)
@@ -772,7 +794,7 @@
           }
           giftDialog.close();
           giftForm.reset();
-          showThanks(item, qty, payload.name);
+          showThanks(item, qty, payload.name, address);
         } catch (err) {
           if (!err.code) console.error(err);
           if (err.code === "invite") {
@@ -790,7 +812,9 @@
           submitGift.textContent = "Confirmar presente";
         }
       };
-      function showThanks(item, qty, name) {
+      function showThanks(item, qty, name, address) {
+        thanksAddress.textContent = address;
+        thanksAddressBox.hidden = !address;
         const first = name.split(/\s+/)[0];
         thanksText.textContent = `Obrigado, ${first}! Reservamos ${qty}× ${item.name} em seu nome.`;
         nextStep.textContent = CONFIG.nextStepMessage.replace(
@@ -811,15 +835,18 @@
         thanksPix.textContent = CONFIG.pixKey;
         thanksDialog.showModal();
       }
-      async function copyPix(btn) {
+      async function copyText(btn, text, done) {
         try {
-          await navigator.clipboard.writeText(CONFIG.pixKey);
+          await navigator.clipboard.writeText(text);
           const label = btn.textContent;
-          btn.textContent = "Chave copiada ✓";
+          btn.textContent = done;
           setTimeout(() => (btn.textContent = label), 2500);
         } catch (_) {
-          showToast("Não foi possível copiar. Selecione a chave e copie.");
+          showToast("Não foi possível copiar. Selecione o texto e copie.");
         }
+      }
+      function copyPix(btn) {
+        return copyText(btn, CONFIG.pixKey, "Chave copiada ✓");
       }
       function showToast(t) {
         toast.textContent = t;
@@ -861,6 +888,12 @@
       );
       copyPixBtn.onclick = () => copyPix(copyPixBtn);
       thanksCopy.onclick = () => copyPix(thanksCopy);
+      thanksCopyAddress.onclick = () =>
+        copyText(
+          thanksCopyAddress,
+          thanksAddress.textContent,
+          "Endereço copiado ✓",
+        );
       thanksClose.onclick = () => thanksDialog.close();
       cancelGift.onclick = () => giftDialog.close();
       setup();

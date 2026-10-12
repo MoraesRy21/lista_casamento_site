@@ -51,6 +51,17 @@ O código fica guardado nas Propriedades do Script, não no código-fonte, entã
 
 Para consultar, trocar ou remover o código, use o mesmo menu. Gerar um novo código invalida os links já enviados.
 
+### Endereço de entrega
+
+Para quem vai comprar o presente e mandar entregar:
+
+1. Na planilha, clique em **Lista de Casamento → Definir endereço de entrega**.
+2. Digite o endereço completo, usando `;` para quebrar linha. Ex.: `Rua das Flores, 123, Apto 45; Centro - Fortaleza/CE; CEP 60000-000; A/C Fulano`.
+
+O endereço **não fica no site nem no repositório**. Ele é guardado nas Propriedades do Script e enviado ao convidado apenas na tela de confirmação, depois de uma reserva feita com o código do convite. Sem código do convite configurado, ele nunca é enviado.
+
+Para alterar ou remover, use o mesmo menu (deixe em branco para remover). **Nunca coloque o endereço no `index.html`**: o site e o repositório são públicos.
+
 ## 4. Publicar o Apps Script
 
 No editor do Apps Script:
